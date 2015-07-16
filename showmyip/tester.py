@@ -1,5 +1,7 @@
+from contextlib import contextmanager
 from subprocess import check_output
 import logging
+import time
 
 import pigpio
 
@@ -9,21 +11,20 @@ from constants import LEDS
 LOG = logging.getLogger(__name__)
 
 
-def init(connection):
-    '''
-    Initialise each LED and turn it off.
-    '''
+def reset(conn):
     for led in LEDS:
-        connection.set_mode(led, pigpio.OUTPUT)
-        connection.write(led, 1)
+        conn.write(led, 1)
 
 
-def reset(connection):
-    '''
-    Turn each LED off.
-    '''
+@contextmanager
+def GPIOConnection():
+    pi = pigpio.pi()
     for led in LEDS:
-        connection.write(led, 1)
+        pi.set_mode(led, pigpio.OUTPUT)
+    reset(pi)
+    yield pi
+    reset(pi)
+    pi.stop()
 
 
 def visualise(conn, value):
@@ -58,15 +59,13 @@ def get_ip():
 
 def run():
     LOG.info('LED controller started')
-    pi = pigpio.pi()
-    init(pi)
-    ip = get_ip()
-    octets = [int(octet) for octet in ip.split('.')]
-    for octet in octets:
-        LOG.info('Visualising %d', octet)
-        visualise(pi, octet)
-    reset(pi)
-    pi.stop()
+    with GPIOConnection() as pi:
+        ip = get_ip()
+        octets = [int(octet) for octet in ip.split('.')]
+        for octet in octets:
+            LOG.info('Visualising %d', octet)
+            visualise(pi, octet)
+            time.sleep(1)
 
 
 logging.basicConfig(level=logging.DEBUG)
