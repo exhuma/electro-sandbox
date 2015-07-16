@@ -1,0 +1,2 @@
+BUTTON = 7
+LED = 8
